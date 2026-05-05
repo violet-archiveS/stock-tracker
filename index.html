@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>국내 주식 데일리 트래커</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #1a1a1a; }
+  .header { background: #fff; border-bottom: 1px solid #e9ecef; padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  select, input[type=date] { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid #dee2e6; background: #fff; color: #1a1a1a; }
+  .btn { font-size: 12px; font-weight: 500; padding: 6px 14px; border-radius: 8px; border: 1px solid #dee2e6; background: #fff; color: #1a1a1a; cursor: pointer; }
+  .btn:hover { background: #f1f3f5; }
+  .btn-dark { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .btn-dark:hover { background: #333; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 16px; }
+  .mc { background: #fff; border-radius: 10px; padding: 14px; border: 1px solid #e9ecef; }
+  .mc-label { font-size: 11px; color: #868e96; margin-bottom: 4px; }
+  .mc-val { font-size: 22px; font-weight: 600; }
+  .mc-sub { font-size: 10px; color: #adb5bd; margin-top: 2px; }
+  .up { color: #e03131; }
+  .down { color: #1971c2; }
+  .section { padding: 0 16px 12px; }
+  .filter-row { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 10px; padding: 12px 16px; border: 1px solid #e9ecef; flex-wrap: wrap; }
+  .filter-label { font-size: 13px; color: #495057; white-space: nowrap; }
+  .filter-val { font-size: 13px; font-weight: 600; min-width: 70px; }
+  input[type=range] { flex: 1; min-width: 120px; accent-color: #1a1a1a; }
+  .pill-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 20px; border: 1px solid #e9ecef; background: #fff; color: #495057; cursor: pointer; white-space: nowrap; }
+  .pill.on { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .stock-list { padding: 0 16px 100px; display: flex; flex-direction: column; gap: 8px; }
+  .stock-card { background: #fff; border-radius: 12px; padding: 14px 16px; border: 1px solid #e9ecef; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .stock-name { font-size: 15px; font-weight: 600; }
+  .stock-meta { font-size: 11px; color: #adb5bd; margin-top: 2px; display: flex; gap: 6px; align-items: center; }
+  .mkt-badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+  .kospi { background: #e7f5ff; color: #1971c2; }
+  .kosdaq { background: #f3f0ff; color: #7048e8; }
+  .change-big { font-size: 20px; font-weight: 700; }
+  .card-mid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+  .stat { background: #f8f9fa; border-radius: 8px; padding: 8px 10px; }
+  .stat-label { font-size: 10px; color: #868e96; margin-bottom: 2px; }
+  .stat-val { font-size: 13px; font-weight: 600; }
+  .badges { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+  .badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
+  .b-red { background: #fff5f5; color: #c92a2a; }
+  .b-blue { background: #e7f5ff; color: #1864ab; }
+  .b-green { background: #ebfbee; color: #2b8a3e; }
+  .news-toggle { font-size: 12px; color: #868e96; border: none; background: none; cursor: pointer; margin-top: 10px; display: block; padding: 0; }
+  .news-box { margin-top: 8px; border-top: 1px solid #f1f3f5; padding-top: 8px; display: none; }
+  .news-box.open { display: block; }
+  .news-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f8f9fa; line-height: 1.5; }
+  .news-item a { color: #1971c2; text-decoration: none; }
+  .news-item a:hover { text-decoration: underline; }
+  .empty { text-align: center; padding: 3rem; color: #868e96; font-size: 14px; }
+  .loading { text-align: center; padding: 3rem; color: #868e96; font-size: 14px; }
+
+  /* 개별 종목 조회 모달 */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; }
+  .modal-backdrop.open { display: flex; align-items: flex-end; justify-content: center; }
+  .modal { background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 600px; padding: 20px; max-height: 85vh; overflow-y: auto; }
+  .modal-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-close { font-size: 20px; cursor: pointer; color: #868e96; background: none; border: none; }
+  .modal-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .modal-row input { flex: 1; min-width: 120px; }
+  .chart-wrap { margin-top: 16px; overflow-x: auto; }
+  .chart-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; }
+  .chart-bar { height: 20px; border-radius: 3px; min-width: 2px; transition: width 0.3s; }
+  .chart-up { background: #e03131; }
+  .chart-down { background: #1971c2; }
+  .chart-label { width: 70px; text-align: right; color: #495057; white-space: nowrap; }
+  .chart-val { color: #868e96; font-size: 11px; white-space: nowrap; }
+  .csv-btn-wrap { padding: 0 16px 12px; }
+
+  @media (max-width: 480px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .card-mid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📈 국내 주식 데일리 트래커</h1>
+  <div class="header-row">
+    <select id="dateSel" onchange="loadDate(this.value)">
+      <option>날짜 로딩 중...</option>
+    </select>
+    <div style="display:flex;gap:8px;">
+      <button class="btn" onclick="openStockModal()">종목 조회</button>
+    </div>
+  </div>
+</div>
+
+<div class="metrics">
+  <div class="mc"><div class="mc-label">조회 종목수</div><div class="mc-val" id="mTotal">—</div><div class="mc-sub">시가총액 필터</div></div>
+  <div class="mc"><div class="mc-label">상한가</div><div class="mc-val up" id="mUpper">—</div><div class="mc-sub">29.5% 이상</div></div>
+  <div class="mc"><div class="mc-label">거래량 급등</div><div class="mc-val" id="mVol">—</div><div class="mc-sub">1천만주 이상</div></div>
+  <div class="mc"><div class="mc-label">거래대금 급등</div><div class="mc-val" id="mAmt">—</div><div class="mc-sub">500억 이상</div></div>
+</div>
+
+<div class="section">
+  <div class="filter-row">
+    <span class="filter-label">시가총액 최소</span>
+    <input type="range" id="capRange" min="100" max="5000" step="100" value="1000" oninput="onCapChange(this.value)">
+    <span class="filter-val" id="capVal">1,000억+</span>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pill-group" id="marketFilter">
+    <button class="pill on" onclick="setMarket('all',this)">전체</button>
+    <button class="pill" onclick="setMarket('KOSPI',this)">코스피</button>
+    <button class="pill" onclick="setMarket('KOSDAQ',this)">코스닥</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="pill-group" id="tabFilter">
+    <button class="pill on" onclick="setTab('all',this)">전체</button>
+    <button class="pill" onclick="setTab('upper',this)">상한가</button>
+    <button class="pill" onclick="setTab('vol',this)">거래량</button>
+    <button class="pill" onclick="setTab('amt',this)">거래대금</button>
+  </div>
+</div>
+
+<div class="csv-btn-wrap">
+  <button class="btn btn-dark" onclick="downloadCSV()">📥 CSV 다운로드</button>
+</div>
+
+<div class="stock-list" id="stockList">
+  <div class="loading">데이터 로딩 중...</div>
+</div>
+
+<!-- 개별 종목 조회 모달 -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">
+      <span>종목 과거 데이터 조회</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-row">
+      <input type="text" id="stockInput" placeholder="종목코드 또는 이름 (예: 005930, 삼성전자)" style="flex:2;">
+    </div>
+    <div class="modal-row">
+      <span style="font-size:13px;color:#495057;">시작일</span>
+      <input type="date" id="startDate">
+      <span style="font-size:13px;color:#495057;">종료일</span>
+      <input type="date" id="endDate">
+      <button class="btn btn-dark" onclick="fetchStockHistory()">조회</button>
+    </div>
+    <div id="stockChartWrap"></div>
+  </div>
+</div>
+
+<script>
+let allStocks = [], minCap = 1000, currentTab = 'all', currentMarket = 'all';
+
+// 날짜 목록 로드
+async function loadDates() {
+  try {
+    const res = await fetch('data/dates.json');
+    const dates = await res.json();
+    const sel = document.getElementById('dateSel');
+    sel.innerHTML = dates.map(d =>
+      `<option value="${d}">${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6,8)}</option>`
+    ).join('');
+    if (dates.length > 0) loadDate(dates[0]);
+  } catch {
+    document.getElementById('dateSel').innerHTML = '<option>데이터 없음</option>';
+    document.getElementById('stockList').innerHTML = '<div class="empty">아직 데이터가 없어. Python 스크립트를 먼저 실행해줘.</div>';
+  }
+}
+
+async function loadDate(date) {
+  document.getElementById('stockList').innerHTML = '<div class="loading">로딩 중...</div>';
+  try {
+    const res = await fetch(`data/${date}.json`);
+    const json = await res.json();
+    allStocks = json.stocks || [];
+    render();
+  } catch {
+    document.getElementById('stockList').innerHTML = '<div class="empty">데이터를 불러올 수 없어.</div>';
+  }
+}
+
+function onCapChange(v) {
+  minCap = parseInt(v);
+  document.getElementById('capVal').textContent = parseInt(v) >= 5000 ? '5,000억+' : parseInt(v).toLocaleString() + '억+';
+  render();
+}
+
+function setTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('#tabFilter .pill').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+function setMarket(market, el) {
+  currentMarket = market;
+  document.querySelectorAll('#marketFilter .pill').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  render();
+}
+
+function getFiltered() {
+  let d = allStocks.filter(s => s.mktcap >= minCap);
+  if (currentMarket !== 'all') d = d.filter(s => s.market === currentMarket);
+  if (currentTab === 'upper') d = d.filter(s => s.change >= 29.5);
+  if (currentTab === 'vol') d = d.filter(s => s.volume >= 1000);
+  if (currentTab === 'amt') d = d.filter(s => s.amount >= 500);
+  d.sort((a, b) => b.change - a.change);
+  return d;
+}
+
+function toggleNews(code) {
+  const box = document.getElementById('news-' + code);
+  const btn = document.getElementById('btn-' + code);
+  if (box.classList.contains('open')) {
+    box.classList.remove('open');
+    btn.textContent = '▼ 관련 뉴스 보기';
+  } else {
+    box.classList.add('open');
+    btn.textContent = '▲ 닫기';
+  }
+}
+
+function render() {
+  const data = getFiltered();
+  const base = allStocks.filter(s => s.mktcap >= minCap);
+  document.getElementById('mTotal').textContent = base.length.toLocaleString();
+  document.getElementById('mUpper').textContent = base.filter(s => s.change >= 29.5).length;
+  document.getElementById('mVol').textContent = base.filter(s => s.volume >= 1000).length;
+  document.getElementById('mAmt').textContent = base.filter(s => s.amount >= 500).length;
+
+  if (!data.length) {
+    document.getElementById('stockList').innerHTML = '<div class="empty">해당 조건의 종목이 없어.</div>';
+    return;
+  }
+
+  document.getElementById('stockList').innerHTML = data.map(s => {
+    const chg = parseFloat(s.change);
+    const cls = chg > 0 ? 'up' : chg < 0 ? 'down' : '';
+    const sign = chg > 0 ? '+' : '';
+    const mktBadge = s.market === 'KOSPI'
+      ? '<span class="mkt-badge kospi">KOSPI</span>'
+      : '<span class="mkt-badge kosdaq">KOSDAQ</span>';
+    let badges = '';
+    if (chg >= 29.5) badges += '<span class="badge b-red">상한가</span>';
+    if (s.volume >= 1000) badges += '<span class="badge b-blue">거래량</span>';
+    if (s.amount >= 500) badges += '<span class="badge b-green">거래대금</span>';
+    const newsHtml = s.news && s.news.length
+      ? `<button class="news-toggle" id="btn-${s.code}" onclick="toggleNews('${s.code}')">▼ 관련 뉴스 보기</button>
+         <div class="news-box" id="news-${s.code}">
+           ${s.news.map(n => `<div class="news-item"><a href="${n.url}" target="_blank">${n.title}</a></div>`).join('')}
+         </div>` : '';
+    return `<div class="stock-card">
+      <div class="card-top">
+        <div>
+          <div class="stock-name">${s.name} ${mktBadge}</div>
+          <div class="stock-meta">${s.code}</div>
+        </div>
+        <div class="change-big ${cls}">${sign}${chg.toFixed(2)}%</div>
+      </div>
+      <div class="card-mid">
+        <div class="stat"><div class="stat-label">현재가</div><div class="stat-val">${s.price.toLocaleString()}원</div></div>
+        <div class="stat"><div class="stat-label">거래량</div><div class="stat-val">${s.volume.toLocaleString()}만주</div></div>
+        <div class="stat"><div class="stat-label">거래대금</div><div class="stat-val">${s.amount.toLocaleString()}억</div></div>
+        <div class="stat"><div class="stat-label">시가총액</div><div class="stat-val">${s.mktcap.toLocaleString()}억</div></div>
+      </div>
+      <div class="badges">${badges}</div>
+      ${newsHtml}
+    </div>`;
+  }).join('');
+}
+
+// CSV 다운로드
+function downloadCSV() {
+  const data = getFiltered();
+  const rows = [['종목코드','종목명','시장','현재가','등락률(%)','거래량(만주)','거래대금(억)','시가총액(억)']];
+  data.forEach(s => rows.push([s.code, s.name, s.market, s.price, s.change, s.volume, s.amount, s.mktcap]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const date = document.getElementById('dateSel').value;
+  a.download = `stock_${date}.csv`;
+  a.click();
+}
+
+// 개별 종목 모달
+function openStockModal() {
+  const today = new Date().toISOString().slice(0,10);
+  const threeMonthsAgo = new Date(Date.now() - 90*24*60*60*1000).toISOString().slice(0,10);
+  document.getElementById('startDate').value = threeMonthsAgo;
+  document.getElementById('endDate').value = today;
+  document.getElementById('modalBackdrop').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+  document.getElementById('stockChartWrap').innerHTML = '';
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('modalBackdrop')) closeModal();
+}
+
+async function fetchStockHistory() {
+  const input = document.getElementById('stockInput').value.trim();
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+  if (!input) { alert('종목코드 또는 이름을 입력해줘.'); return; }
+
+  // 이름으로 입력하면 코드로 변환
+  let code = input;
+  if (!/^\d+$/.test(input)) {
+    const found = allStocks.find(s => s.name.includes(input));
+    if (found) code = found.code;
+    else { alert('종목을 찾을 수 없어. 종목코드로 입력해봐.'); return; }
+  }
+
+  const wrap = document.getElementById('stockChartWrap');
+  wrap.innerHTML = '<div class="loading">데이터 불러오는 중...</div>';
+
+  try {
+    // Yahoo Finance API로 개별 종목 조회
+    const suffix = code.startsWith('0') || code.length === 6 ? '.KS' : '.KQ';
+    const ticker = code + suffix;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&period1=${Math.floor(new Date(start).getTime()/1000)}&period2=${Math.floor(new Date(end).getTime()/1000)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const result = data.chart.result[0];
+    const timestamps = result.timestamp;
+    const closes = result.indicators.quote[0].close;
+    const stockName = result.meta.symbol;
+
+    // 차트 렌더링
+    const maxClose = Math.max(...closes.filter(Boolean));
+    const minClose = Math.min(...closes.filter(Boolean));
+    const range = maxClose - minClose || 1;
+
+    wrap.innerHTML = `
+      <div style="font-size:13px;font-weight:600;margin:16px 0 10px;">${stockName} 주가 추이</div>
+      <div class="chart-wrap">
+        ${timestamps.map((ts, i) => {
+          if (!closes[i]) return '';
+          const date = new Date(ts * 1000).toLocaleDateString('ko-KR', {month:'2-digit',day:'2-digit'});
+          const width = Math.max(2, Math.round(((closes[i] - minClose) / range) * 200));
+          const prev = closes[i-1] || closes[i];
+          const isUp = closes[i] >= prev;
+          return `<div class="chart-bar-row">
+            <span class="chart-label">${date}</span>
+            <div class="chart-bar ${isUp ? 'chart-up' : 'chart-down'}" style="width:${width}px"></div>
+            <span class="chart-val">${closes[i].toLocaleString()}원</span>
+          </div>`;
+        }).join('')}
+      </div>`;
+  } catch(e) {
+    wrap.innerHTML = '<div class="empty">데이터를 불러올 수 없어. 종목코드를 확인해봐.</div>';
+  }
+}
+
+// 초기 로드
+loadDates();
+
+// 모달 날짜 초기값
+const today = new Date().toISOString().slice(0,10);
+const threeMonthsAgo = new Date(Date.now() - 90*24*60*60*1000).toISOString().slice(0,10);
+</script>
+</body>
+</html>
