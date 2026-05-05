@@ -82,10 +82,6 @@ def run(date_str=None):
     featured = df_filtered[df_filtered['code'].isin(featured_codes)].copy()
     print(f"특징주 총: {len(featured)}개")
 
-    if len(featured) > 100:
-        print("⚠️ 특징주 100개 초과 → 거래량 상위 50개만 처리")
-        featured = featured.nlargest(50, 'volume_만주')
-
     print(f"뉴스 수집 중... ({len(featured)}개 종목)")
     stocks = []
     for i, (_, row) in enumerate(featured.iterrows()):
