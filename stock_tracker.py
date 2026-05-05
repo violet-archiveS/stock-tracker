@@ -24,13 +24,25 @@ def get_trading_day(date_str=None):
 
 def get_news(name):
     try:
-        query = requests.utils.quote(name + ' 특징주')
-        url = f'https://finance.naver.com/news/news_search.naver?q={query}'
-        headers = {'User-Agent': 'Mozilla/5.0'}
+        from urllib.parse import quote
+        query = name + ' 특징주'
+        url = f'https://search.naver.com/search.naver?where=news&query={quote(query)}'
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         res = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(res.text, 'html.parser')
-        items = soup.select('.articleSubject a')[:3]
-        return [{'title': i.text.strip(), 'url': i.get('href', '#')} for i in items]
+
+        news = []
+        seen_urls = set()
+        for a in soup.find_all('a'):
+            text = a.text.strip()
+            href = a.get('href', '')
+            classes = str(a.get('class', ''))
+            if len(text) > 10 and 'fender' in classes and href.startswith('http') and href not in seen_urls:
+                seen_urls.add(href)
+                news.append({'title': text[:60], 'url': href})
+            if len(news) >= 3:
+                break
+        return news
     except:
         return []
 
@@ -81,6 +93,10 @@ def run(date_str=None):
     featured_codes = upper | high_vol | high_amt
     featured = df_filtered[df_filtered['code'].isin(featured_codes)].copy()
     print(f"특징주 총: {len(featured)}개")
+
+    if len(featured) > 200:
+        print(f"⚠️ 특징주 {len(featured)}개 → 거래량 상위 200개로 제한")
+        featured = featured.nlargest(200, 'volume_만주')
 
     print(f"뉴스 수집 중... ({len(featured)}개 종목)")
     stocks = []
