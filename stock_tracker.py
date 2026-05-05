@@ -5,24 +5,21 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import json
 import os
+import sys
+import holidays
 
-def get_recent_trading_day(df=None):
-    """공휴일/주말 감지해서 직전 거래일 반환"""
-    d = datetime.today()
-    if d.hour < 16:
+def get_trading_day(date_str=None):
+    """직전 거래일 계산 (공휴일/주말 제외)"""
+    kr_holidays = holidays.SouthKorea(years=datetime.today().year)
+    
+    if date_str:
+        d = datetime.strptime(date_str, '%Y%m%d')
+    else:
+        d = datetime.today()
+    
+    while d.date().weekday() >= 5 or d.date() in kr_holidays:
         d -= timedelta(days=1)
-    while d.weekday() >= 5:
-        d -= timedelta(days=1)
-
-    # 데이터가 있으면 실제 거래 여부 확인
-    if df is not None:
-        total_volume = df['Volume'].fillna(0).sum()
-        if total_volume == 0:
-            print(f"{d.strftime('%Y%m%d')} 거래 없음 (공휴일 추정) → 직전 거래일로 이동")
-            d -= timedelta(days=1)
-            while d.weekday() >= 5:
-                d -= timedelta(days=1)
-
+    
     return d.strftime('%Y%m%d')
 
 def get_news(name):
@@ -37,7 +34,10 @@ def get_news(name):
     except:
         return []
 
-def run():
+def run(date_str=None):
+    date = get_trading_day(date_str)
+    print(f"거래일: {date}")
+
     print("코스피 불러오는 중...")
     kospi = fdr.StockListing('KOSPI')
     kospi['Market'] = 'KOSPI'
@@ -48,37 +48,30 @@ def run():
 
     df = pd.concat([kospi, kosdaq], ignore_index=True)
 
-    # 공휴일 감지
-    date = get_recent_trading_day(df)
-    print(f"{date} 기준으로 처리합니다.")
-
     df = df.rename(columns={
-        'Code': 'code', 'Name': 'name', 'Market': 'market',
-        'Marcap': 'mktcap', 'Volume': 'volume', 'Amount': 'amount',
-        'Close': 'price', 'Changes': 'change'
+        'Code': 'code',
+        'Name': 'name',
+        'Market': 'market',
+        'Marcap': 'mktcap',
+        'Volume': 'volume',
+        'Amount': 'amount',
+        'Close': 'price',
+        'ChagesRatio': 'change_pct'
     })
-
-    if 'change' not in df.columns:
-        df['change'] = 0.0
-    if 'price' not in df.columns:
-        df['price'] = 0
 
     df['mktcap_억'] = (df['mktcap'].fillna(0) / 1e8).astype(int)
     df['volume_만주'] = (df['volume'].fillna(0) / 1e4).round(1)
     df['amount_억'] = (df['amount'].fillna(0) / 1e8).astype(int)
-    df['change_pct'] = (df['change'].fillna(0) * 100).round(2)
+    df['change_pct'] = df['change_pct'].fillna(0).round(2)
     df['price'] = df['price'].fillna(0).astype(int)
 
-    # 컬럼명 확인 (디버깅용)
-    print("컬럼 목록:", df.columns.tolist())
     print(f"전체 종목수: {len(df)}")
-    print(f"거래량 합계: {df['volume_만주'].sum():,.0f}만주")
 
-    # 시가총액 1000억 이상 필터
+    # 시가총액 1000억 이상
     df_filtered = df[df['mktcap_억'] >= 1000].copy()
     print(f"시가총액 1000억 이상: {len(df_filtered)}개")
 
-    # 특징주 필터 - 실제 거래가 있는 날만 의미있는 값
+    # 특징주 필터
     upper = set(df_filtered[df_filtered['change_pct'] >= 29.5]['code'])
     high_vol = set(df_filtered[df_filtered['volume_만주'] >= 1000]['code'])
     high_amt = set(df_filtered[df_filtered['amount_억'] >= 500]['code'])
@@ -89,10 +82,8 @@ def run():
     featured = df_filtered[df_filtered['code'].isin(featured_codes)].copy()
     print(f"특징주 총: {len(featured)}개")
 
-    # 특징주가 여전히 너무 많으면 경고
     if len(featured) > 100:
-        print("⚠️  특징주가 100개 초과 — 공휴일이거나 데이터 이상 가능성 있음")
-        print("거래량 상위 50개만 처리합니다.")
+        print("⚠️ 특징주 100개 초과 → 거래량 상위 50개만 처리")
         featured = featured.nlargest(50, 'volume_만주')
 
     print(f"뉴스 수집 중... ({len(featured)}개 종목)")
@@ -112,7 +103,7 @@ def run():
             'news': news
         })
 
-    # data 폴더에 JSON 저장
+    # JSON 저장
     os.makedirs('data', exist_ok=True)
     json_path = f'data/{date}.json'
     with open(json_path, 'w', encoding='utf-8') as f:
@@ -133,6 +124,14 @@ def run():
         json.dump(dates, f)
     print(f"✓ dates.json 업데이트 완료")
 
+    # 잘못된 날짜 파일 정리
+    wrong_date = datetime.today().strftime('%Y%m%d')
+    if wrong_date != date:
+        wrong_path = f'data/{wrong_date}.json'
+        if os.path.exists(wrong_path):
+            os.remove(wrong_path)
+            print(f"✓ 잘못된 날짜 파일 {wrong_path} 삭제")
+
     # GitHub push
     os.system('git add .')
     os.system(f'git commit -m "Update {date}"')
@@ -140,4 +139,6 @@ def run():
     print("✓ GitHub 업로드 완료")
 
 if __name__ == '__main__':
-    run()
+    # 날짜 인자 받기 (예: python stock_tracker.py 20260504)
+    date_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    run(date_arg)
