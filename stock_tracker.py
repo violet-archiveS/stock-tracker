@@ -25,24 +25,32 @@ def get_trading_day(date_str=None):
 def get_news(name):
     try:
         from urllib.parse import quote
-        query = name + ' 특징주'
-        url = f'https://search.naver.com/search.naver?where=news&query={quote(query)}'
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        res = requests.get(url, headers=headers, timeout=5)
+        from datetime import date, timedelta
+        from_date = (date.today() - timedelta(days=7)).strftime('%Y-%m-%d')
+        query = f'"{name}" 특징주 after:{from_date}'
+        url = f'https://news.google.com/search?q={quote(query)}&hl=ko&gl=KR&ceid=KR:ko'
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9'
+        }
+        res = requests.get(url, headers=headers, timeout=15)
         soup = BeautifulSoup(res.text, 'html.parser')
 
-        news = []
-        seen_urls = set()
-        for a in soup.find_all('a'):
-            text = a.text.strip()
-            href = a.get('href', '')
-            classes = str(a.get('class', ''))
-            if len(text) > 10 and 'fender' in classes and href.startswith('http') and href not in seen_urls:
-                seen_urls.add(href)
-                news.append({'title': text[:60], 'url': href})
-            if len(news) >= 3:
+        news_items = []
+        visited = set()
+        for selector in ['a[jsname="wQEwvb"]', 'h3 a', '.SPZz6b a']:
+            for item in soup.select(selector):
+                title = item.get_text().strip()
+                href = item.get('href', '')
+                if title and len(title) > 10 and href not in visited:
+                    full_url = href if href.startswith('http') else f'https://news.google.com{href}'
+                    news_items.append({'title': title[:80], 'url': full_url})
+                    visited.add(href)
+                if len(news_items) >= 3:
+                    break
+            if len(news_items) >= 3:
                 break
-        return news
+        return news_items
     except:
         return []
 
