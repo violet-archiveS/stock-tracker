@@ -188,7 +188,7 @@ let allStocks = [], minCap = 1000, currentTab = 'all', currentMarket = 'all';
 async function init() {
   try {
     // 캐시 방지를 위해 타임스탬프 추가
-    const res = await fetch(`data/dates.json?t=${new Date().getTime()}`);
+    const res = await fetch(`data/${date}.json?t=${new Date().getTime()}`);
     if (!res.ok) throw new Error('dates.json 파일을 찾을 수 없습니다.');
     const dates = await res.json();
     if (dates && dates.length > 0) {
@@ -214,7 +214,6 @@ async function loadData(date) {
   status.textContent = date + ' 데이터 로딩 중...';
 
   try {
-    // 경로 중복 수정: 'data/' + date + '.json'
     const res = await fetch(`data/${date}.json?t=${new Date().getTime()}`);
     if (!res.ok) throw new Error('데이터 파일이 없습니다.');
     
