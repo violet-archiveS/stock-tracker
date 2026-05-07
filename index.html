@@ -49,11 +49,37 @@
   .b-blue { background: #e7f5ff; color: #1864ab; }
   .b-green { background: #ebfbee; color: #2b8a3e; }
   .news-toggle { font-size: 12px; color: #868e96; border: none; background: none; cursor: pointer; margin-top: 10px; display: block; padding: 0; }
-  .news-box { margin-top: 8px; border-top: 1px solid #f1f3f5; padding-top: 8px; display: none; }
-  .news-box.open { display: block; }
-  .news-item { font-size: 12px; padding: 4px 0; border-bottom: 1px solid #f8f9fa; line-height: 1.5; }
-  .news-item a { color: #1971c2; text-decoration: none; }
-  .news-item a:hover { text-decoration: underline; }
+ /* index.html 스타일 부분 수정 */
+.news-box {
+  display: block; /* 항상 보이도록 변경 */
+  background: #f1f3f5;
+  border-radius: 8px;
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.news-toggle {
+  display: none; /* 이제 버튼은 필요 없으므로 숨깁니다 */
+}
+
+.news-item {
+  font-size: 13px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.news-item:last-child {
+  margin-bottom: 0;
+}
+
+.news-item a {
+  color: #228be6;
+  text-decoration: none;
+}
+
+.news-item a:hover {
+  text-decoration: underline;
+}
   .empty { text-align: center; padding: 3rem; color: #868e96; font-size: 14px; }
   .loading { text-align: center; padding: 3rem; color: #868e96; font-size: 14px; }
 
@@ -256,13 +282,17 @@ function render() {
 const hasNews = s.news && s.news.length > 0;
 
 const newsHtml = `
-  <button class="news-toggle" id="btn-${s.code}" onclick="toggleNews('${s.code}')">
-    ${hasNews ? '▼ 관련 뉴스 보기' : '✕ 관련 뉴스 없음'}
-  </button>
+// index.html 자바스크립트 부분 수정
+const hasNews = s.news && s.news.length > 0;
+
+const newsHtml = `
   <div class="news-box" id="news-${s.code}">
+    <div style="font-size:11px; color:#868e96; margin-bottom:6px; font-weight:bold;">
+      ${hasNews ? '📰 관련 뉴스' : '✕ 최근 뉴스 없음'}
+    </div>
     ${hasNews 
-      ? s.news.map(n => `<div class="news-item"><a href="${n.url}" target="_blank">${n.title}</a></div>`).join('')
-      : '<div class="news-item" style="color:#999; padding:10px;">최근 7일간 검색된 뉴스가 없습니다.</div>'}
+      ? s.news.map(n => `<div class="news-item"><a href="${n.url}" target="_blank">· ${n.title}</a></div>`).join('')
+      : '<div class="news-item" style="color:#adb5bd; font-size:12px;">최근 7일간 검색된 뉴스 데이터가 없습니다.</div>'}
   </div>`;
     return `<div class="stock-card">
       <div class="card-top">
