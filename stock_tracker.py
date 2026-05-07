@@ -25,33 +25,43 @@ def get_trading_day(date_str=None):
 def get_news(name):
     try:
         from urllib.parse import quote
-        from datetime import date, timedelta
-        from_date = (date.today() - timedelta(days=7)).strftime('%Y-%m-%d')
-        query = f'"{name}" 특징주 after:{from_date}'
-        url = f'https://news.google.com/search?q={quote(query)}&hl=ko&gl=KR&ceid=KR:ko'
+        # 1. 검색어에서 큰따옴표를 제거하여 검색 범위를 유연하게 설정
+        query = f'{name} 특징주'
+        
+        # 2. tbs=qdr:d7 파라미터를 추가하여 정확히 최근 '일주일' 데이터만 요청
+        url = f'https://news.google.com/search?q={quote(query)}&hl=ko&gl=KR&ceid=KR:ko&tbs=qdr:d7'
+        
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
-        res = requests.get(url, headers=headers, timeout=15)
+        res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
 
         news_items = []
-        visited = set()
-        for selector in ['a[jsname="wQEwvb"]', 'h3 a', '.SPZz6b a']:
+        visited_urls = set()
+        
+        # 3. 보강된 뉴스 추출 셀렉터 (구글 뉴스의 다양한 구조 대응)
+        selectors = ['a[jsname="wQEwvb"]', 'article a[href]', 'h3 a', 'main a']
+        
+        for selector in selectors:
             for item in soup.select(selector):
                 title = item.get_text().strip()
                 href = item.get('href', '')
-                if title and len(title) > 10 and href not in visited:
-                    full_url = href if href.startswith('http') else f'https://news.google.com{href}'
-                    news_items.append({'title': title[:80], 'url': full_url})
-                    visited.add(href)
-                if len(news_items) >= 3:
-                    break
-            if len(news_items) >= 3:
-                break
+                
+                # 4. 제목에 종목명이 포함되어 있는지 검증 (정확도 향상)
+                if title and len(title) > 5 and name in title:
+                    full_url = href if href.startswith('http') else f'https://news.google.com{href[1:] if href.startswith(".") else href}'
+                    
+                    if full_url not in visited_urls:
+                        news_items.append({'title': title[:80], 'url': full_url})
+                        visited_urls.add(full_url)
+                
+                if len(news_items) >= 3: break
+            if len(news_items) >= 3: break
+            
         return news_items
-    except:
+    except Exception as e:
+        print(f"뉴스 검색 오류 ({name}): {e}")
         return []
 
 def run(date_str=None):
