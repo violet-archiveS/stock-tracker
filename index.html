@@ -252,11 +252,18 @@ function render() {
     if (chg >= 29.5) badges += '<span class="badge b-red">상한가</span>';
     if (s.volume >= 1000) badges += '<span class="badge b-blue">거래량</span>';
     if (s.amount >= 500) badges += '<span class="badge b-green">거래대금</span>';
-    const newsHtml = s.news && s.news.length
-      ? `<button class="news-toggle" id="btn-${s.code}" onclick="toggleNews('${s.code}')">▼ 관련 뉴스 보기</button>
-         <div class="news-box" id="news-${s.code}">
-           ${s.news.map(n => `<div class="news-item"><a href="${n.url}" target="_blank">${n.title}</a></div>`).join('')}
-         </div>` : '';
+    // 뉴스 데이터 유무 확인
+const hasNews = s.news && s.news.length > 0;
+
+const newsHtml = `
+  <button class="news-toggle" id="btn-${s.code}" onclick="toggleNews('${s.code}')">
+    ${hasNews ? '▼ 관련 뉴스 보기' : '✕ 관련 뉴스 없음'}
+  </button>
+  <div class="news-box" id="news-${s.code}">
+    ${hasNews 
+      ? s.news.map(n => `<div class="news-item"><a href="${n.url}" target="_blank">${n.title}</a></div>`).join('')
+      : '<div class="news-item" style="color:#999; padding:10px;">최근 7일간 검색된 뉴스가 없습니다.</div>'}
+  </div>`;
     return `<div class="stock-card">
       <div class="card-top">
         <div>
