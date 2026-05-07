@@ -145,10 +145,10 @@
 
 <div class="section">
   <div class="pill-group" id="tabFilter">
-    <button class="pill on" onclick="setTab('all',this)">전체</button>
-    <button class="pill" onclick="setTab('upper',this)">상한가</button>
-    <button class="pill" onclick="setTab('vol',this)">거래량</button>
-    <button class="pill" onclick="setTab('amt',this)">거래대금</button>
+    <button class="pill on" onclick="toggleTab('all',this)">전체</button>
+    <button class="pill" onclick="toggleTab('upper',this)">상한가</button>
+    <button class="pill" onclick="toggleTab('vol',this)">거래량</button>
+    <button class="pill" onclick="toggleTab('amt',this)">거래대금</button>
   </div>
 </div>
 
@@ -218,10 +218,28 @@ function onCapChange(v) {
   render();
 }
 
-function setTab(tab, el) {
-  currentTab = tab;
-  document.querySelectorAll('#tabFilter .pill').forEach(t => t.classList.remove('on'));
-  el.classList.add('on');
+let activeTabs = new Set(['all']);
+
+function toggleTab(tab, el) {
+  if (tab === 'all') {
+    activeTabs = new Set(['all']);
+    document.querySelectorAll('#tabFilter .pill').forEach(t => t.classList.remove('on'));
+    el.classList.add('on');
+  } else {
+    activeTabs.delete('all');
+    document.querySelector('#tabFilter .pill:first-child').classList.remove('on');
+    if (activeTabs.has(tab)) {
+      activeTabs.delete(tab);
+      el.classList.remove('on');
+    } else {
+      activeTabs.add(tab);
+      el.classList.add('on');
+    }
+    if (activeTabs.size === 0) {
+      activeTabs.add('all');
+      document.querySelector('#tabFilter .pill:first-child').classList.add('on');
+    }
+  }
   render();
 }
 
@@ -235,9 +253,14 @@ function setMarket(market, el) {
 function getFiltered() {
   let d = allStocks.filter(s => s.mktcap >= minCap);
   if (currentMarket !== 'all') d = d.filter(s => s.market === currentMarket);
-  if (currentTab === 'upper') d = d.filter(s => s.change >= 29.5);
-  if (currentTab === 'vol') d = d.filter(s => s.volume >= 1000);
-  if (currentTab === 'amt') d = d.filter(s => s.amount >= 500);
+  if (!activeTabs.has('all')) {
+    d = d.filter(s => {
+      if (activeTabs.has('upper') && s.change >= 29.5) return true;
+      if (activeTabs.has('vol') && s.volume >= 1000) return true;
+      if (activeTabs.has('amt') && s.amount >= 500) return true;
+      return false;
+    });
+  }
   d.sort((a, b) => b.change - a.change);
   return d;
 }
